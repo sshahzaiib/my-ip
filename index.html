@@ -7,7 +7,7 @@
     <!-- SEO Meta Data -->
     <title>What's My IP Address? — Trace Details and Timestamp</title>
     <meta name="description" content="Quickly check your public IP address, Cloudflare location trace code, and the current timestamp using a reliable public endpoint.">
-    <meta name="keywords" content="check ip, my ip, ip address, ip location, ip country, what's my ip, ip timestamp, cloudflare trace">
+    <meta name="keywords" content="check ip, my ip, ip address, ip location, ip country, what's my ip, ip timestamp, cloudflare trace, flag">
     <meta name="author" content="Gemini AI">
 
     <!-- Load Tailwind CSS -->
@@ -50,10 +50,13 @@
                 <span id="ip-address" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
             </div>
 
-            <!-- Cloudflare Location Code -->
+            <!-- Cloudflare Location Code & Flag -->
             <div class="data-item flex justify-between items-center py-4 border-b border-gray-100">
                 <span class="label font-medium text-gray-500 text-left flex-1">Location Code (LOC):</span>
-                <span id="ip-full-country" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
+                <!-- Updated value class to support flexible content (image + text) -->
+                <span id="ip-full-country" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base flex items-center justify-end space-x-2">
+                    <!-- Flag and Code will be injected here by JS -->
+                </span>
             </div>
             
             <!-- Timestamp -->
@@ -71,7 +74,7 @@
         </button>
 
         <p class="mt-8 text-sm text-gray-400">
-            Data retrieved exclusively from a public Cloudflare trace endpoint.
+            Data retrieved exclusively from a public Cloudflare trace endpoint. Flag images provided by flagcdn.com.
         </p>
     </div>
 
@@ -85,7 +88,6 @@
             // Data display elements
             const ipAddressEl = document.getElementById('ip-address');
             const ipFullCountryEl = document.getElementById('ip-full-country');
-            // Removed ipRegionEl and ipCityEl references
             const currentTimestampEl = document.getElementById('current-timestamp');
 
             /**
@@ -151,7 +153,26 @@
                     
                     // --- Success: Update DOM ---
                     ipAddressEl.textContent = result.ip;
-                    ipFullCountryEl.textContent = result.countryCode;
+                    
+                    const countryCode = result.countryCode.toLowerCase(); // Flag CDN uses lowercase
+                    const flagUrl = `https://flagcdn.com/w20/${countryCode}.png`;
+                    const fallbackFlagUrl = 'https://placehold.co/20x15/cccccc/ffffff?text=X'; // Simple placeholder
+
+                    if (result.countryCode === 'N/A') {
+                        ipFullCountryEl.textContent = 'N/A';
+                    } else {
+                        // Use innerHTML to inject the image and text side-by-side
+                        ipFullCountryEl.innerHTML = `
+                            <img 
+                                src="${flagUrl}" 
+                                onerror="this.onerror=null;this.src='${fallbackFlagUrl}';" 
+                                alt="Flag of ${result.countryCode}" 
+                                class="rounded shadow-md"
+                                style="width: 20px; height: 15px;"
+                            >
+                            <span>${result.countryCode}</span>
+                        `;
+                    }
                     
                     // Format Cloudflare timestamp
                     let formattedTime = 'N/A';

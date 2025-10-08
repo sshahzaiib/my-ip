@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- SEO Meta Data -->
+    <title>What's My IP Address? — Detailed Location and Timestamp</title>
+    <meta name="description" content="Quickly check your public IP address, detailed geographic location (city, region, country), and the current timestamp using a reliable geolocation API.">
+    <meta name="keywords" content="check ip, my ip, ip address, ip location, ip country, what's my ip, ip timestamp, geolocation, city, region">
+    <meta name="author" content="Gemini AI">
+
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font and base styles */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Ensure the body takes up full height for centering */
+        .full-screen-center {
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="full-screen-center bg-gray-50 flex items-center justify-center p-4">
+
+    <div class="container bg-white p-6 sm:p-10 rounded-xl shadow-2xl max-w-xl w-full text-center border border-blue-100">
+        
+        <!-- Header -->
+        <h1 class="text-3xl font-extrabold text-blue-600 mb-8 tracking-tight">
+            Your Public IP Details
+        </h1>
+
+        <!-- Loading State -->
+        <div id="loading" class="data-item p-4 text-center text-lg font-medium text-blue-500">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Fetching IP data...
+        </div>
+
+        <!-- Data Display Area -->
+        <div id="ip-data" class="hidden">
+            
+            <!-- IP Address -->
+            <div class="data-item flex justify-between items-center py-4 border-b border-gray-100">
+                <span class="label font-medium text-gray-500 text-left flex-1">Public IP Address:</span>
+                <span id="ip-address" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
+            </div>
+
+            <!-- Full Country Name (from Geo API) -->
+            <div class="data-item flex justify-between items-center py-4 border-b border-gray-100">
+                <span class="label font-medium text-gray-500 text-left flex-1">Country:</span>
+                <span id="ip-full-country" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
+            </div>
+
+            <!-- Region/State (from Geo API) -->
+            <div class="data-item flex justify-between items-center py-4 border-b border-gray-100">
+                <span class="label font-medium text-gray-500 text-left flex-1">Region/State:</span>
+                <span id="ip-region" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
+            </div>
+
+            <!-- City (from Geo API) -->
+            <div class="data-item flex justify-between items-center py-4 border-b border-gray-100">
+                <span class="label font-medium text-gray-500 text-left flex-1">City:</span>
+                <span id="ip-city" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
+            </div>
+            
+            <!-- Timestamp -->
+            <div class="data-item flex justify-between items-center py-4 border-b-0">
+                <span class="label font-medium text-gray-500 text-left flex-1">Timestamp (Local Time):</span>
+                <span id="current-timestamp" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base text-xs sm:text-sm"></span>
+            </div>
+            
+        </div>
+        
+        <!-- Refetch Button -->
+        <button id="refetch-btn" class="mt-8 w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition duration-150 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+            <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2.128M15 11l-3 3-3-3"></path></svg>
+            Refetch Data
+        </button>
+
+        <p class="mt-8 text-sm text-gray-400">
+            Primary data via <a href="https://ip-api.com" target="_blank" class="text-blue-400 hover:text-blue-600 underline">ip-api.com</a>. Cloudflare trace used as fallback.
+        </p>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const dataContainer = document.getElementById('ip-data');
+            const loadingEl = document.getElementById('loading');
+            const refetchBtn = document.getElementById('refetch-btn');
+
+            // Data display elements
+            const ipAddressEl = document.getElementById('ip-address');
+            const ipFullCountryEl = document.getElementById('ip-full-country');
+            const ipRegionEl = document.getElementById('ip-region');
+            const ipCityEl = document.getElementById('ip-city');
+            const currentTimestampEl = document.getElementById('current-timestamp');
+
+            /**
+             * Resets all fields to 'N/A' or empty strings.
+             */
+            const resetFields = () => {
+                ipAddressEl.textContent = 'N/A';
+                ipFullCountryEl.textContent = 'N/A';
+                ipRegionEl.textContent = 'N/A';
+                ipCityEl.textContent = 'N/A';
+                currentTimestampEl.textContent = 'N/A';
+            };
+
+            /**
+             * Primary attempt: Query ip-api.com for detailed geolocation.
+             */
+            const fetchLocationData = async () => {
+                // Using HTTPS and no IP parameter for automatic client detection
+                const apiEndpoint = `https://ip-api.com/json/`;
+                
+                try {
+                    const response = await fetch(apiEndpoint);
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        return {
+                            ip: data.query || 'N/A',
+                            city: data.city || 'N/A',
+                            region: data.regionName || 'N/A',
+                            country: data.country || 'N/A',
+                            source: 'ip-api.com'
+                        };
+                    } else {
+                        // Status is 'fail', indicating API limits or issues
+                        console.warn("ip-api.com failed or limited:", data.message);
+                        throw new Error(`ip-api.com failed: ${data.message}`);
+                    }
+                } catch (error) {
+                    console.error("Error fetching location data from ip-api:", error);
+                    // Throw the error to trigger the fallback in fetchAndDisplayData
+                    throw error; 
+                }
+            };
+
+            /**
+             * Fallback attempt: Query the Cloudflare trace endpoint.
+             */
+            const fetchCloudflareFallback = async () => {
+                const traceEndpoint = "https://shahzaibakram.dev/cdn-cgi/trace";
+
+                try {
+                    const response = await fetch(traceEndpoint);
+                    if (!response.ok) {
+                        throw new Error(`Cloudflare HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.text();
+
+                    const ipData = data.trim().split('\n').reduce((obj, line) => {
+                        const [key, value] = line.split('=');
+                        if (key && value) {
+                            obj[key.trim()] = value.trim();
+                        }
+                        return obj;
+                    }, {});
+
+                    return {
+                        ip: ipData.ip || 'N/A',
+                        city: 'N/A (Fallback)',
+                        region: `${ipData.loc || 'N/A'} (Code)`, // Use LOC code
+                        country: `Cloudflare Trace ${ipData.loc || 'N/A'}`,
+                        ts: ipData.ts,
+                        source: 'Cloudflare Trace'
+                    };
+                } catch (error) {
+                    console.error("Cloudflare fallback failed:", error);
+                    throw error;
+                }
+            }
+
+
+            /**
+             * Main function to orchestrate data fetching and display.
+             */
+            const fetchAndDisplayData = async () => {
+                // UI Management: Start loading state (outside try/catch for immediate execution)
+                loadingEl.textContent = 'Fetching IP data...';
+                loadingEl.classList.remove('hidden', 'text-red-500', 'font-bold');
+                loadingEl.classList.add('text-blue-500');
+                dataContainer.classList.add('hidden');
+                refetchBtn.disabled = true;
+                refetchBtn.textContent = 'Fetching...';
+                
+                resetFields();
+                let result = null;
+
+                try {
+                    // --- Start Core Logic ---
+
+                    try {
+                        // ATTEMPT 1: ip-api.com (Primary)
+                        result = await fetchLocationData();
+                        currentTimestampEl.textContent = new Date().toLocaleTimeString(); // Use client time when API is successful
+
+                    } catch (primaryError) {
+                        // ATTEMPT 2: Cloudflare Trace (Fallback)
+                        console.warn("Primary API failed. Attempting Cloudflare fallback...");
+                        loadingEl.textContent = 'Primary API failed. Using fallback...';
+                        result = await fetchCloudflareFallback();
+                        
+                        // Format Cloudflare timestamp
+                        let formattedTime = 'N/A';
+                        if (result.ts) {
+                            try {
+                                const tsMilliseconds = parseFloat(result.ts) * 1000;
+                                formattedTime = new Date(tsMilliseconds).toUTCString();
+                            } catch (e) { /* silent fail */ }
+                        }
+                        currentTimestampEl.textContent = formattedTime;
+                    }
+                    
+                    // If execution reaches here, result is successfully populated by primary or fallback.
+                    
+                    // --- Success: Update DOM regardless of source ---
+                    ipAddressEl.textContent = result.ip;
+                    ipFullCountryEl.textContent = result.country + (result.source === 'ip-api.com' ? '' : ' (Fallback)');
+                    ipRegionEl.textContent = result.region;
+                    ipCityEl.textContent = result.city;
+
+                    // UI Management: Show data
+                    loadingEl.classList.add('hidden');
+                    dataContainer.classList.remove('hidden');
+
+                    // --- End Core Logic ---
+
+
+                } catch (finalError) {
+                    // This catch block handles errors that escaped the inner try/catch blocks (i.e., failed fallback)
+                    console.error("Critical failure during IP data retrieval.", finalError);
+                    loadingEl.textContent = 'Error: Could not retrieve any data.';
+                    loadingEl.classList.remove('text-blue-500');
+                    loadingEl.classList.add('text-red-500', 'font-bold');
+
+                } finally {
+                    // Ensure the button is always re-enabled
+                    refetchBtn.disabled = false;
+                    refetchBtn.textContent = 'Refetch Data';
+                }
+            };
+            
+            // Initial load
+            fetchAndDisplayData();
+
+            // Refetch button event listener
+            refetchBtn.addEventListener('click', fetchAndDisplayData);
+        });
+    </script>
+</body>
+</html>

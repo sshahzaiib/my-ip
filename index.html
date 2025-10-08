@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- SEO Meta Data -->
-    <title>What's My IP Address? — Detailed Location and Timestamp</title>
-    <meta name="description" content="Quickly check your public IP address, detailed geographic location (city, region, country), and the current timestamp using a reliable geolocation API.">
-    <meta name="keywords" content="check ip, my ip, ip address, ip location, ip country, what's my ip, ip timestamp, geolocation, city, region">
+    <title>What's My IP Address? — Trace Details and Timestamp</title>
+    <meta name="description" content="Quickly check your public IP address, Cloudflare location trace code, and the current timestamp using a reliable public endpoint.">
+    <meta name="keywords" content="check ip, my ip, ip address, ip location, ip country, what's my ip, ip timestamp, cloudflare trace">
     <meta name="author" content="Gemini AI">
 
     <!-- Load Tailwind CSS -->
@@ -29,7 +29,7 @@
         
         <!-- Header -->
         <h1 class="text-3xl font-extrabold text-blue-600 mb-8 tracking-tight">
-            Your Public IP Details
+            Your Public IP Details (Cloudflare Trace)
         </h1>
 
         <!-- Loading State -->
@@ -50,27 +50,15 @@
                 <span id="ip-address" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
             </div>
 
-            <!-- Full Country Name (from Geo API) -->
+            <!-- Cloudflare Location Code -->
             <div class="data-item flex justify-between items-center py-4 border-b border-gray-100">
-                <span class="label font-medium text-gray-500 text-left flex-1">Country:</span>
+                <span class="label font-medium text-gray-500 text-left flex-1">Location Code (LOC):</span>
                 <span id="ip-full-country" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
-            </div>
-
-            <!-- Region/State (from Geo API) -->
-            <div class="data-item flex justify-between items-center py-4 border-b border-gray-100">
-                <span class="label font-medium text-gray-500 text-left flex-1">Region/State:</span>
-                <span id="ip-region" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
-            </div>
-
-            <!-- City (from Geo API) -->
-            <div class="data-item flex justify-between items-center py-4 border-b border-gray-100">
-                <span class="label font-medium text-gray-500 text-left flex-1">City:</span>
-                <span id="ip-city" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base"></span>
             </div>
             
             <!-- Timestamp -->
             <div class="data-item flex justify-between items-center py-4 border-b-0">
-                <span class="label font-medium text-gray-500 text-left flex-1">Timestamp (Local Time):</span>
+                <span class="label font-medium text-gray-500 text-left flex-1">Timestamp (UTC from Trace):</span>
                 <span id="current-timestamp" class="value font-bold text-gray-900 text-right bg-blue-50 px-3 py-1 rounded-lg text-base text-xs sm:text-sm"></span>
             </div>
             
@@ -83,7 +71,7 @@
         </button>
 
         <p class="mt-8 text-sm text-gray-400">
-            Primary data via <a href="https://ip-api.com" target="_blank" class="text-blue-400 hover:text-blue-600 underline">ip-api.com</a>. Cloudflare trace used as fallback.
+            Data retrieved exclusively from a public Cloudflare trace endpoint.
         </p>
     </div>
 
@@ -97,8 +85,7 @@
             // Data display elements
             const ipAddressEl = document.getElementById('ip-address');
             const ipFullCountryEl = document.getElementById('ip-full-country');
-            const ipRegionEl = document.getElementById('ip-region');
-            const ipCityEl = document.getElementById('ip-city');
+            // Removed ipRegionEl and ipCityEl references
             const currentTimestampEl = document.getElementById('current-timestamp');
 
             /**
@@ -107,46 +94,13 @@
             const resetFields = () => {
                 ipAddressEl.textContent = 'N/A';
                 ipFullCountryEl.textContent = 'N/A';
-                ipRegionEl.textContent = 'N/A';
-                ipCityEl.textContent = 'N/A';
                 currentTimestampEl.textContent = 'N/A';
             };
 
             /**
-             * Primary attempt: Query ip-api.com for detailed geolocation.
+             * Primary (and only) function: Query the Cloudflare trace endpoint.
              */
-            const fetchLocationData = async () => {
-                // Using HTTPS and no IP parameter for automatic client detection
-                const apiEndpoint = `https://ip-api.com/json/`;
-                
-                try {
-                    const response = await fetch(apiEndpoint);
-                    const data = await response.json();
-
-                    if (data.status === 'success') {
-                        return {
-                            ip: data.query || 'N/A',
-                            city: data.city || 'N/A',
-                            region: data.regionName || 'N/A',
-                            country: data.country || 'N/A',
-                            source: 'ip-api.com'
-                        };
-                    } else {
-                        // Status is 'fail', indicating API limits or issues
-                        console.warn("ip-api.com failed or limited:", data.message);
-                        throw new Error(`ip-api.com failed: ${data.message}`);
-                    }
-                } catch (error) {
-                    console.error("Error fetching location data from ip-api:", error);
-                    // Throw the error to trigger the fallback in fetchAndDisplayData
-                    throw error; 
-                }
-            };
-
-            /**
-             * Fallback attempt: Query the Cloudflare trace endpoint.
-             */
-            const fetchCloudflareFallback = async () => {
+            const fetchCloudflareData = async () => {
                 const traceEndpoint = "https://shahzaibakram.dev/cdn-cgi/trace";
 
                 try {
@@ -156,6 +110,7 @@
                     }
                     const data = await response.text();
 
+                    // Parse the plain text key=value pairs
                     const ipData = data.trim().split('\n').reduce((obj, line) => {
                         const [key, value] = line.split('=');
                         if (key && value) {
@@ -166,14 +121,12 @@
 
                     return {
                         ip: ipData.ip || 'N/A',
-                        city: 'N/A (Fallback)',
-                        region: `${ipData.loc || 'N/A'} (Code)`, // Use LOC code
-                        country: `Cloudflare Trace ${ipData.loc || 'N/A'}`,
+                        countryCode: ipData.loc || 'N/A', // e.g., 'MY'
                         ts: ipData.ts,
                         source: 'Cloudflare Trace'
                     };
                 } catch (error) {
-                    console.error("Cloudflare fallback failed:", error);
+                    console.error("Cloudflare data fetch failed:", error);
                     throw error;
                 }
             }
@@ -183,7 +136,7 @@
              * Main function to orchestrate data fetching and display.
              */
             const fetchAndDisplayData = async () => {
-                // UI Management: Start loading state (outside try/catch for immediate execution)
+                // UI Management: Start loading state
                 loadingEl.textContent = 'Fetching IP data...';
                 loadingEl.classList.remove('hidden', 'text-red-500', 'font-bold');
                 loadingEl.classList.add('text-blue-500');
@@ -192,50 +145,30 @@
                 refetchBtn.textContent = 'Fetching...';
                 
                 resetFields();
-                let result = null;
-
+                
                 try {
-                    // --- Start Core Logic ---
-
-                    try {
-                        // ATTEMPT 1: ip-api.com (Primary)
-                        result = await fetchLocationData();
-                        currentTimestampEl.textContent = new Date().toLocaleTimeString(); // Use client time when API is successful
-
-                    } catch (primaryError) {
-                        // ATTEMPT 2: Cloudflare Trace (Fallback)
-                        console.warn("Primary API failed. Attempting Cloudflare fallback...");
-                        loadingEl.textContent = 'Primary API failed. Using fallback...';
-                        result = await fetchCloudflareFallback();
-                        
-                        // Format Cloudflare timestamp
-                        let formattedTime = 'N/A';
-                        if (result.ts) {
-                            try {
-                                const tsMilliseconds = parseFloat(result.ts) * 1000;
-                                formattedTime = new Date(tsMilliseconds).toUTCString();
-                            } catch (e) { /* silent fail */ }
-                        }
-                        currentTimestampEl.textContent = formattedTime;
-                    }
+                    const result = await fetchCloudflareData();
                     
-                    // If execution reaches here, result is successfully populated by primary or fallback.
-                    
-                    // --- Success: Update DOM regardless of source ---
+                    // --- Success: Update DOM ---
                     ipAddressEl.textContent = result.ip;
-                    ipFullCountryEl.textContent = result.country + (result.source === 'ip-api.com' ? '' : ' (Fallback)');
-                    ipRegionEl.textContent = result.region;
-                    ipCityEl.textContent = result.city;
+                    ipFullCountryEl.textContent = result.countryCode;
+                    
+                    // Format Cloudflare timestamp
+                    let formattedTime = 'N/A';
+                    if (result.ts) {
+                        try {
+                            const tsMilliseconds = parseFloat(result.ts) * 1000;
+                            formattedTime = new Date(tsMilliseconds).toUTCString();
+                        } catch (e) { /* silent fail */ }
+                    }
+                    currentTimestampEl.textContent = formattedTime;
 
                     // UI Management: Show data
                     loadingEl.classList.add('hidden');
                     dataContainer.classList.remove('hidden');
 
-                    // --- End Core Logic ---
-
-
                 } catch (finalError) {
-                    // This catch block handles errors that escaped the inner try/catch blocks (i.e., failed fallback)
+                    // Handles failures if the Cloudflare API itself fails
                     console.error("Critical failure during IP data retrieval.", finalError);
                     loadingEl.textContent = 'Error: Could not retrieve any data.';
                     loadingEl.classList.remove('text-blue-500');
